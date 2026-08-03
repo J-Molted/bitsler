@@ -148,7 +148,9 @@ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:10
       <div id="medLine" class="mono acc" style="font-size:40px;font-weight:700;line-height:1.1">—</div>
       <div id="medSub" class="dim" style="font-size:11px">—</div>
     </div>
+    <div id="wBar" style="margin-bottom:12px"></div>
     <div class="cards" id="recoCards"></div>
+    <div id="rawCmp"></div>
     <table style="margin-top:10px"><thead><tr><th>이번 판이</th><th>이 배수 이상 갈 확률</th></tr></thead>
       <tbody id="qTbl"></tbody></table>
     <div class="note" id="recoNote"></div>
@@ -554,6 +556,33 @@ function render(){
       <div class="cp ${ev>=0?'ok':'bad'}">EV ${ev>=0?"+":""}${fmt(ev,3)}</div>
       <div class="cd">${c.d}</div></div>`;
   }).join("");
+
+  /* 데이터 반영 비중 — 추천이 안 움직이는 이유를 노출 */
+  const wD = n/(n+kap);
+  document.getElementById("wBar").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span class="dim" style="font-size:11px">데이터 반영 비중</span>
+      <b class="mono ${wD<0.10?'warn':'acc'}" style="font-size:14px">${(wD*100).toFixed(1)}%</b></div>
+    <div class="bar"><i style="width:${Math.max(1.5,wD*100).toFixed(1)}%;background:${wD<0.10?'var(--warn)':'var(--acc)'}"></i></div>
+    <div class="dim" style="font-size:10px;margin-top:5px">n=${n} · κ=${kap} → 추천 = 이론 ${((1-wD)*100).toFixed(0)}% + 실측 ${(wD*100).toFixed(0)}%${
+      wD<0.10?'<br><b class="warn">실측 비중이 낮아 추천이 거의 안 움직입니다 — 과적합 방지 설계입니다.</b> 아래 κ를 낮추면 즉시 반응합니다.':''}</div>
+    <div class="row" style="margin-top:7px;gap:4px">
+      <span class="dim" style="font-size:10px;margin-right:2px">κ</span>
+      ${[200,100,50,20,0].map(x=>`<button class="kbtn${x===kap?' pri':''}" data-k="${x}" style="padding:2px 9px;font-size:11px">${x}</button>`).join("")}
+      <span class="dim" style="font-size:10px;margin-left:4px">낮출수록 실측 반영 ↑ · 노이즈 추종 위험 ↑</span>
+    </div>`;
+  document.querySelectorAll(".kbtn").forEach(b=>b.onclick=()=>{
+    document.getElementById("kappa").value=b.dataset.k; render(); });
+
+  /* 실측만 봤을 때 (κ=0) 비교 */
+  const Rr=reco(0), survR=ti=>ti<=0?1:Rr[ti-1].pr;
+  const tALr=q=>{let b=1;for(let ti=1;ti<K;ti++) if(survR(ti)>=q) b=ti; return b;};
+  document.getElementById("rawCmp").innerHTML = n<5 ? "" : `
+    <div style="margin-top:8px;padding:8px 10px;background:var(--panel2);border-radius:7px;font-size:11px">
+      <span class="dim">실측만 (κ=0):</span>
+      <b class="mono">안전 ${L[tALr(0.75)]}× · 표준 ${L[tALr(0.50)]}× · 공격 ${L[tALr(0.20)]}×</b>
+      <div class="dim" style="font-size:10px;margin-top:3px">위 카드와 차이가 크면 표본이 아직 이론에서 벗어나 있다는 뜻입니다. n이 작을 땐 대부분 노이즈입니다.</div>
+    </div>`;
 
   document.getElementById("qTbl").innerHTML=[0.90,0.75,0.50,0.25,0.10,0.05].map(q=>{
     const ti=targetAtLeast(q);
