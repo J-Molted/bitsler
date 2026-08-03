@@ -80,6 +80,11 @@ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:10
 .card.safe{border-color:rgba(63,185,80,.4)} .card.safe .ct,.card.safe .cm{color:var(--ok)}
 .card.std{border-color:rgba(88,166,255,.4)} .card.std .ct,.card.std .cm{color:var(--acc)}
 .card.agg{border-color:rgba(188,140,255,.4)} .card.agg .ct,.card.agg .cm{color:var(--hot)}
+.nav{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.nav a{padding:6px 13px;font-size:12px;font-weight:600;text-decoration:none;color:var(--tx2);background:var(--panel2);transition:.12s;white-space:nowrap}
+.nav a:hover{background:#262d36;color:var(--tx)}
+.nav a.on{background:var(--acc);color:#0d1117}
+.nav a.on.bit{background:var(--hot);color:#0d1117}
 @media(max-width:900px){.pad{grid-template-columns:repeat(4,1fr)}
   #heroGrid{grid-template-columns:1fr!important}}
 </style>
@@ -89,6 +94,7 @@ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:10
 
 <header>
   <h1>Shuffle Chicken Tracker<span>RTP 98% · 20-tier uniform model</span></h1>
+  <div class="nav"><a href="/" class="on">Shuffle 20칸</a><a href="/bitsler/">Bitsler 25칸</a></div>
   <div class="spacer"></div>
   <span id="conn" class="badge y">저장소 확인중…</span>
   <select id="seedSel" title="Seed 세션"></select>
