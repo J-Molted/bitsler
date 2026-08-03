@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitsler Risky Chicken Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c232c; --line:#2d333b;
+  --tx:#e6edf3; --tx2:#8b949e; --tx3:#6e7681;
+  --acc:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --hot:#bc8cff;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;font-size:14px;line-height:1.5}
+.wrap{max-width:1400px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.2px}
+h1 span{color:var(--tx3);font-weight:400;font-size:12px;margin-left:6px}
+.spacer{flex:1}
+button{font-family:inherit;font-size:13px;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);padding:6px 11px;transition:.12s}
+button:hover{border-color:var(--tx3);background:#262d36}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.pri{background:var(--acc);border-color:var(--acc);color:#0d1117;font-weight:600}
+button.pri:hover{background:#79b8ff}
+button.danger:hover{border-color:var(--bad);color:var(--bad)}
+input,select{font-family:inherit;font-size:13px;background:#0d1117;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:6px 9px;outline:none}
+input:focus,select:focus{border-color:var(--acc)}
+.grid{display:grid;gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.panel h2{font-size:12px;margin:0 0 12px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:8px}
+.panel h2 .tag{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--panel2);color:var(--tx3);text-transform:none;letter-spacing:0}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:11px;color:var(--tx3);font-weight:500;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}
+th:first-child{text-align:left}
+td{padding:3px 6px;text-align:right;font-family:var(--mono);font-size:12px;border-bottom:1px solid rgba(45,51,59,.4)}
+td:first-child{text-align:left}
+.mono{font-family:var(--mono)}
+.dim{color:var(--tx3)}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .hot{color:var(--hot)} .acc{color:var(--acc)}
+.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pad button{padding:11px 2px;font-family:var(--mono);font-size:13px;font-weight:600}
+.pad button.zero{background:#3d1d1d;border-color:#6e2b2b;color:#ff9d9d}
+.pad button.zero:hover{background:#5a2a2a}
+.pad button.hi{border-color:#4a3a6b;color:var(--hot)}
+.pad button.subopt::after{content:"·";position:absolute;top:2px;right:5px;color:var(--warn);font-weight:900}
+.pad button{position:relative}
+.optb{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;letter-spacing:.3px}
+.optb.y{background:rgba(63,185,80,.18);color:var(--ok)}
+.optb.n{background:rgba(210,153,34,.18);color:var(--warn)}
+.bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;border-radius:3px;transition:width .3s}
+.kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(45,51,59,.4);font-size:12px}
+.kv:last-child{border:0}
+.kv b{font-family:var(--mono);font-weight:600}
+.big{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1.1}
+.note{font-size:11px;color:var(--tx3);line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.hist{display:flex;flex-wrap:wrap;gap:3px;max-height:120px;overflow-y:auto;font-family:var(--mono);font-size:10px}
+.hist span{padding:2px 5px;border-radius:3px;background:var(--panel2);color:var(--tx2)}
+.hist span.z{background:#3d1d1d;color:#ff9d9d}
+.hist span.h{background:#2d2440;color:var(--hot)}
+.hist span.last{outline:1.5px solid var(--acc)}
+dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:620px;width:92%}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;font-size:11px;line-height:1.5}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.badge{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600}
+.badge.g{background:rgba(63,185,80,.15);color:var(--ok)}
+.badge.y{background:rgba(210,153,34,.15);color:var(--warn)}
+.badge.r{background:rgba(248,81,73,.15);color:var(--bad)}
+.gauge{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(45,51,59,.4)}
+.gauge:last-child{border:0}
+.gauge .lbl{font-family:var(--mono);font-size:12px;min-width:58px}
+.gauge .val{font-family:var(--mono);font-size:12px;text-align:right;min-width:88px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:10px;background:var(--panel2);border-radius:8px}
+.colh{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.split .mono div{display:flex;justify-content:space-between;padding:2px 0}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
+.card .ct{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.card .cm{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1.2;margin:3px 0}
+.card .cp{font-family:var(--mono);font-size:11px;color:var(--tx2)}
+.card .cd{font-size:10px;color:var(--tx3);margin-top:4px;line-height:1.35}
+.card.safe{border-color:rgba(63,185,80,.4)} .card.safe .ct,.card.safe .cm{color:var(--ok)}
+.card.std{border-color:rgba(88,166,255,.4)} .card.std .ct,.card.std .cm{color:var(--acc)}
+.card.agg{border-color:rgba(188,140,255,.4)} .card.agg .ct,.card.agg .cm{color:var(--hot)}
+@media(max-width:900px){.pad{grid-template-columns:repeat(4,1fr)}
+  #heroGrid{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Bitsler Risky Chicken Tracker<span>RTP 96% · 25-tier uniform · edge 4%</span></h1>
+  <div class="spacer"></div>
+  <span id="conn" class="badge y">저장소 확인중…</span>
+  <select id="seedSel" title="Seed 세션"></select>
+  <button id="newSeed">+ Seed</button>
+  <button id="cfgBtn">설정</button>
+  <button id="expBtn">내보내기</button>
+</header>
+
+<!-- ===== INPUT ===== -->
+<div class="panel" style="margin-bottom:14px">
+  <h2>결과 입력 <span class="tag" id="nLabel">n = 0</span></h2>
+  <div class="pad" id="pad"></div>
+  <div class="row" style="margin-top:10px">
+    <button id="undo" class="danger">↩ 마지막 취소</button>
+    <button id="clearSeed" class="danger">이 seed 전체 삭제</button>
+    <span class="dim" style="font-size:11px">키보드: 1~9,0,q~t 로도 입력 가능 · Backspace = 취소</span>
+  </div>
+  <div class="hist" id="hist" style="margin-top:10px"></div>
+</div>
+
+<!-- ══════ HERO ① READY INDICATOR ══════ -->
+<div class="grid" style="grid-template-columns:1.15fr 1fr;margin-bottom:14px" id="heroGrid">
+
+  <div class="panel">
+    <h2>① 고배수 READY 지수 <span class="tag">가뭄 극단성</span></h2>
+    <div style="display:flex;gap:18px;align-items:center;margin-bottom:14px">
+      <div style="text-align:center;min-width:120px">
+        <div id="readyScore" class="mono" style="font-size:44px;font-weight:700;line-height:1">—</div>
+        <div id="readyVerdict" class="badge y" style="margin-top:6px;display:inline-block">대기</div>
+        <div id="readySub" class="dim" style="font-size:10px;margin-top:5px">n 부족</div>
+      </div>
+      <div style="flex:1" id="drought"></div>
+    </div>
+    <div class="split">
+      <div>
+        <div class="colh warn">체감 — "나올 때 됐다"</div>
+        <div id="feelProb" class="mono" style="font-size:11px"></div>
+      </div>
+      <div>
+        <div class="colh acc">실제 — 베이즈 사후확률</div>
+        <div id="trueProb" class="mono" style="font-size:11px"></div>
+      </div>
+    </div>
+    <div class="note"><b class="warn">두 열이 다른 이유:</b> 왼쪽은 "무작위였다면 벌써 나왔을 확률"(가뭄 극단성)이고, 오른쪽이 <b>실제 다음 판 확률</b>입니다. 독립 검정을 통과한 상태에서는 오른쪽이 가뭄 길이와 무관하게 고정됩니다. READY 지수가 높다는 건 "곧 나온다"가 아니라 <b>"이 seed가 수상하다"</b>는 뜻이고, ②번이 같이 울릴 때만 실제 확률(오른쪽)이 움직입니다. — 그때는 오히려 <b class="bad">내려갑니다.</b></div>
+  </div>
+
+  <div class="panel">
+    <h2>② 이번 판 추천 <span class="tag">사후예측 분위수</span></h2>
+    <div style="padding:12px;background:var(--panel2);border-radius:8px;margin-bottom:12px;text-align:center">
+      <div class="dim" style="font-size:11px">이번 판 예상 도달선 (중앙값)</div>
+      <div id="medLine" class="mono acc" style="font-size:40px;font-weight:700;line-height:1.1">—</div>
+      <div id="medSub" class="dim" style="font-size:11px">—</div>
+    </div>
+    <div class="cards" id="recoCards"></div>
+    <table style="margin-top:10px"><thead><tr><th>이번 판이</th><th>이 배수 이상 갈 확률</th></tr></thead>
+      <tbody id="qTbl"></tbody></table>
+    <div class="note" id="recoNote"></div>
+  </div>
+
+</div>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(400px,1fr))">
+
+  <!-- ===== 2. CUSUM / SPRT ===== -->
+  <div class="panel">
+    <h2>③ Seed 이상 감지 <span class="tag">CUSUM · SPRT · χ²</span></h2>
+    <div id="detect"></div>
+    <canvas id="cusumChart" height="110" style="margin-top:10px"></canvas>
+    <div class="note"><b class="acc">유일하게 진짜 정보값이 있는 패널.</b> 이 seed가 정말 균등 5% 모델을 따르는지 매 라운드 순차검정합니다. 셋 중 하나라도 <span class="bad">ALARM</span>이면 기존 모델이 깨진 것이므로 ④번 추천이 재계산됩니다. 전부 <span class="ok">정상</span>이면 어떤 목표를 골라도 EV는 −2%로 동일합니다.</div>
+  </div>
+
+  <!-- ===== CELL-LEVEL ANOMALY ===== -->
+  <div class="panel">
+    <h2>④ 칸별 이상 감지 <span class="tag">정확검정 · BH-FDR 보정</span></h2>
+    <div id="cellSummary" style="padding:10px;background:var(--panel2);border-radius:8px;margin-bottom:10px"></div>
+    <table><thead><tr><th>배수</th><th>관측</th><th>기대</th><th>정확 p</th><th>보정 q</th><th></th></tr></thead>
+      <tbody id="cellTbl"></tbody></table>
+    <div class="note">③번 χ²는 <b>25칸을 뭉뚱그린</b> 검정이라 한 칸만 튀면 희석돼서 못 잡습니다. 여기는 칸마다 따로 이항 정확검정을 돌리고, 25번 검정하는 대가를 Benjamini-Hochberg로 보정합니다. <b>q &lt; 0.05 면 다중검정을 감안해도 진짜 편차</b>라는 뜻입니다. q가 뜬 칸이 있으면 ②번 추천이 그 편향을 반영해 자동 조정됩니다.</div>
+  </div>
+
+  <!-- ===== TARGET EFFICIENCY (Bitsler 전용) ===== -->
+  <div class="panel">
+    <h2>⑤ 목표 효율 — 반올림 손실 <span class="tag">Bitsler 전용 · 확정 이득</span></h2>
+    <div id="effGrid"></div>
+    <div class="note"><b class="ok">이 패널만 확률이 아니라 확정입니다.</b> Bitsler는 배당을 소수 둘째 자리에서 <b>내림</b>해서 표기합니다. 그래서 <code>p×m</code>이 정확히 0.96인 목표와 그보다 낮은 목표가 섞여 있습니다. <span class="warn">1.04·1.84</span>가 최악(−0.32%p)이고, <span class="ok">1·1.2·1.5·1.6·2·2.4·3·4·4.8·6·8·12·24</span>는 손실이 0입니다. 운이 아니라 산수라서 <b>매판 항상 성립</b>합니다 — 하우스 엣지를 4.32%에서 4.00%로 줄이는, 이 게임에서 유일하게 실재하는 선택입니다.</div>
+  </div>
+
+  <!-- ===== EV RANKING ===== -->
+  <div class="panel">
+    <h2>⑥ 목표별 EV 랭킹 <span class="tag">Empirical Bayes</span></h2>
+    <div class="row" style="margin-bottom:10px">
+      <span class="dim" style="font-size:11px">사전분포 강도 κ</span>
+      <input type="range" id="kappa" min="0" max="500" step="10" value="200" style="flex:1;padding:0">
+      <span id="kappaVal" class="mono acc" style="min-width:36px;text-align:right">200</span>
+    </div>
+    <div id="reco"></div>
+    <div class="note">κ는 ①·② 패널에도 같이 적용됩니다. 높을수록 "균등 5%가 맞다"는 사전 믿음이 강해 이론값으로 수렴하고, 낮을수록 실측 표본을 그대로 따라갑니다. κ=0은 과적합이니 ③번이 ALARM일 때만 내리세요. <b>EV가 전부 음수인 게 정상입니다</b> — 양수로 보이면 표본 노이즈입니다.</div>
+  </div>
+
+  <!-- ===== 3. TARGET RTP + CI ===== -->
+  <div class="panel">
+    <h2>⑦ 목표별 실현 회수율 <span class="tag">Wilson 95% CI</span></h2>
+    <div style="max-height:420px;overflow-y:auto">
+      <table id="rtpTbl">
+        <thead><tr><th>목표</th><th>적중</th><th>적중률</th><th>이론</th><th>실현RTP</th><th>95% CI</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="note">CI가 0.98을 포함하면 <span class="ok">정상 범위</span>입니다. 표본이 작을 때 CI는 넓게 나오며, 이론값을 벗어난 목표를 골라 쫓아가는 건 전형적인 과적합입니다.</div>
+  </div>
+
+  <!-- ===== 5. BANKROLL ===== -->
+  <div class="panel" style="grid-column:1/-1">
+    <h2>⑧ 뱅크롤 / 드로다운 트래커</h2>
+    <div class="row" style="margin-bottom:12px">
+      <label class="dim" style="font-size:11px">시작 뱅크롤</label><input id="bkStart" type="number" value="1000" style="width:90px">
+      <label class="dim" style="font-size:11px">1회 베팅</label><input id="bkBet" type="number" value="10" style="width:70px">
+      <label class="dim" style="font-size:11px">목표 배수</label><select id="bkTarget" style="width:80px"></select>
+      <button id="simBtn">파산확률 시뮬 (10k)</button>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px">
+      <div class="panel" style="padding:10px;background:var(--panel2)"><div class="dim" style="font-size:11px">현재 잔고</div><div class="big" id="bkNow">—</div></div>
+      <div class="panel" style="padding:10px;background:var(--panel2)"><div class="dim" style="font-size:11px">손익</div><div class="big" id="bkPnl">—</div></div>
+      <div class="panel" style="padding:10px;background:var(--panel2)"><div class="dim" style="font-size:11px">최대 드로다운</div><div class="big bad" id="bkDd">—</div></div>
+      <div class="panel" style="padding:10px;background:var(--panel2)"><div class="dim" style="font-size:11px">최장 연패</div><div class="big" id="bkStreak">—</div></div>
+      <div class="panel" style="padding:10px;background:var(--panel2)"><div class="dim" style="font-size:11px">파산확률 (100회)</div><div class="big" id="bkRuin">—</div></div>
+    </div>
+    <canvas id="bkChart" height="90"></canvas>
+    <div class="note">파산확률은 현재 설정으로 앞으로 100라운드를 <b>이론 확률(균등 5%)</b> 하에 몬테카를로 돌린 결과입니다. 하우스 엣지 2%가 있으므로 라운드 수를 늘리면 파산확률은 단조 증가합니다.</div>
+  </div>
+
+</div>
+
+<div class="note" style="margin-top:16px;border:0;color:var(--tx3);font-size:11px">
+이 도구는 예측기가 아니라 <b>기록·검정 도구</b>입니다. Bitsler Risky Chicken은 <code>P(도달)=0.96/m</code>이 정확히 0.04 간격이라 <b>25칸 균등 4%</b> 구조입니다. 60회 표본에서 셔플=비복원 가설은 기각됐고(슬라이딩 고유값 14.49 vs 덱모델 21.06), 마르코프 독립성도 통과했습니다. 따라서 조건부 확률은 항상 칸당 4%로 고정입니다. <b>단 하나의 예외가 ⑤번 패널</b>입니다 — 배당 반올림은 확률이 아니라 산수라서 항상 성립합니다.
+</div>
+
+</div>
+
+<!-- ===== CONFIG DIALOG ===== -->
+<dialog id="cfg">
+  <h2 style="margin-top:0;font-size:15px">저장소 설정</h2>
+  <p class="dim" style="font-size:12px">배포 파일 상단의 <code>SUPABASE_URL</code>/<code>SUPABASE_KEY</code> 상수가 기본값으로 쓰입니다. 여기 입력하면 이 브라우저에서만 그 값을 덮어씁니다. 둘 다 없으면 localStorage에만 저장됩니다.</p>
+  <div style="display:grid;gap:8px;margin:14px 0">
+    <input id="sbUrl" placeholder="https://xxxxx.supabase.co">
+    <input id="sbKey" placeholder="anon public key (eyJ...)">
+  </div>
+  <p class="dim" style="font-size:12px;margin-bottom:6px">Supabase SQL Editor에 아래를 1회 실행하세요:</p>
+  <pre id="sql">create table if not exists bitsler_rounds (
+  id         bigserial primary key,
+  seed       text        not null,
+  n          int         not null,
+  idx        int         not null,
+  mult       numeric     not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists bitsler_rounds_seed_n on bitsler_rounds(seed, n);
+alter table bitsler_rounds enable row level security;
+create policy "anon all" on bitsler_rounds
+  for all to anon using (true) with check (true);</pre>
+  <div class="row" style="margin-top:14px;justify-content:flex-end">
+    <button id="loadBase">60회 기준표본 불러오기</button>
+    <button id="impBtn">JSON 가져오기</button>
+    <button id="cfgTest">연결 테스트</button>
+    <button class="pri" id="cfgSave">저장</button>
+    <button id="cfgReset">기본값 복구</button>
+    <button id="cfgClose">닫기</button>
+  </div>
+  <div id="cfgMsg" style="margin-top:10px;font-size:12px"></div>
+  <input type="file" id="impFile" accept=".json" style="display:none">
+</dialog>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   ▼▼▼ SUPABASE 설정 — 이 두 줄만 채우면 배포 끝 ▼▼▼
+   Supabase 대시보드 → Project Settings → API 에서 복사
+   ══════════════════════════════════════════════════════════════ */
+const SUPABASE_URL = "https://zmuzxoymfxheeaumaetp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_a2XgyVPq6-kQPCrZo3VUuw_tXxn2nbn";
+/* ══════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════
+   MODEL — 20 tiers, uniform 5% each.  P(reach m) = 0.98 / m
+   ══════════════════════════════════════════════════════════════ */
+const L = [0,1,1.04,1.09,1.14,1.20,1.26,1.33,1.41,1.50,1.60,1.71,1.84,
+           2,2.18,2.40,2.66,3,3.42,4,4.80,6,8,12,24];
+const K = L.length;            // 25
+const PTIER = 1/K;             // 0.04
+const RTP  = 0.96;             // Bitsler Risky Chicken
+const KEYS = "1234567890qwertyuiopasdfg";
+/* 반올림 때문에 목표마다 실제 RTP가 다름: p*m 이 0.96 이면 '최적', 미만이면 손해 */
+const EFF = L.map((m,i)=> i===0 ? null : ((K-i)/K)*m);
+const isOpt = i => i>0 && Math.abs(EFF[i]-RTP) < 1e-9;
+
+/* ── math helpers ── */
+function lnGamma(z){
+  const c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,
+           -176.61502916214059,12.507343278686905,-0.13857109526572012,
+           9.9843695780195716e-6,1.5056327351493116e-7];
+  if(z<0.5) return Math.log(Math.PI/Math.sin(Math.PI*z))-lnGamma(1-z);
+  z-=1; let x=c[0];
+  for(let i=1;i<9;i++) x+=c[i]/(z+i);
+  const t=z+7+0.5;
+  return 0.5*Math.log(2*Math.PI)+(z+0.5)*Math.log(t)-t+Math.log(x);
+}
+function gserP(s,x){ let sum=1/s,term=1/s;
+  for(let n=1;n<800;n++){ term*=x/(s+n); sum+=term; if(Math.abs(term)<Math.abs(sum)*1e-15) break; }
+  return sum*Math.exp(-x+s*Math.log(x)-lnGamma(s)); }
+function gcfQ(s,x){ let b=x+1-s,c=1e300,d=1/b,h=d;
+  for(let i=1;i<800;i++){ const an=-i*(i-s); b+=2; d=an*d+b;
+    if(Math.abs(d)<1e-300)d=1e-300; c=b+an/c; if(Math.abs(c)<1e-300)c=1e-300;
+    d=1/d; const del=d*c; h*=del; if(Math.abs(del-1)<1e-15) break; }
+  return Math.exp(-x+s*Math.log(x)-lnGamma(s))*h; }
+function chi2sf(x,k){ if(x<=0)return 1; const s=k/2,y=x/2;
+  return y<s+1 ? 1-gserP(s,y) : gcfQ(s,y); }
+function wilson(w,n,z=1.959964){
+  if(!n) return [0,1];
+  const p=w/n, d=1+z*z/n, ctr=p+z*z/(2*n), rad=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n));
+  return [Math.max(0,(ctr-rad)/d), Math.min(1,(ctr+rad)/d)];
+}
+const fmt=(x,d=3)=>x.toFixed(d);
+const pct=x=>(x*100).toFixed(1)+"%";
+
+/* ══════════════════════════════════════════════════════════════
+   STORE — Supabase REST with localStorage fallback
+   ══════════════════════════════════════════════════════════════ */
+const LS_CFG="bs_cfg", LS_DATA="bs_data", LS_SEED="bs_seed";
+const HARD = SUPABASE_URL && SUPABASE_KEY ? {url:SUPABASE_URL, key:SUPABASE_KEY} : null;
+const stored = JSON.parse(localStorage.getItem(LS_CFG)||"null");
+let cfg = (stored && stored.url && stored.key) ? stored : (HARD || {});
+let rows = [];                       // [{n, idx, mult, id?}]
+let seed = localStorage.getItem(LS_SEED) || "seed-1";
+
+const sbOn = () => !!(cfg.url && cfg.key);
+/* 신형 publishable key(sb_publishable_…)는 apikey 헤더만 사용.
+   구형 anon key(eyJ… JWT)는 Authorization Bearer 도 함께 보냄. */
+const sbHdr = () => {
+  const h = {apikey:cfg.key, "Content-Type":"application/json", Prefer:"return=representation"};
+  if(/^eyJ/.test(cfg.key||"")) h.Authorization = "Bearer "+cfg.key;
+  return h;
+};
+
+async function sbFetch(path, opt={}){
+  const r = await fetch(cfg.url.replace(/\/$/,"")+"/rest/v1/"+path,
+                        {...opt, headers:sbHdr()});
+  if(!r.ok) throw new Error(r.status+" "+await r.text());
+  return r.status===204 ? null : r.json();
+}
+const localAll = () => JSON.parse(localStorage.getItem(LS_DATA)||"{}");
+const localSave = d => localStorage.setItem(LS_DATA, JSON.stringify(d));
+
+async function loadSeeds(){
+  let seeds;
+  if(sbOn()){
+    try{
+      const d = await sbFetch("bitsler_rounds?select=seed");
+      seeds=[...new Set(d.map(x=>x.seed))];
+    }catch(e){ seeds=Object.keys(localAll()); }
+  } else seeds = Object.keys(localAll());
+  if(!seeds.length) seeds=[seed];
+  if(!seeds.includes(seed)) seeds.push(seed);
+  const sel=document.getElementById("seedSel");
+  sel.innerHTML = seeds.map(s=>`<option${s===seed?" selected":""}>${s}</option>`).join("");
+}
+async function loadRows(){
+  if(sbOn()){
+    try{
+      rows = await sbFetch(`bitsler_rounds?seed=eq.${encodeURIComponent(seed)}&order=n.asc`);
+      setConn("ok","☁ Supabase 연결됨"); return;
+    }catch(e){
+      const m=e.message||"";
+      setConn("bad", /42P01|does not exist/.test(m) ? "테이블 없음 → 설정의 SQL 실행 필요"
+                   : /401|403|JWT|Invalid API/i.test(m) ? "키 인증 실패"
+                   : /42501|row-level/i.test(m) ? "RLS 정책 없음"
+                   : "Supabase 오류 → 로컬 사용");
+      console.error("[supabase]", m);
+    }
+  } else setConn("y","로컬 저장소");
+  rows = (localAll()[seed]||[]);
+}
+async function push(idx){
+  const rec={seed, n:rows.length+1, idx, mult:L[idx]};
+  if(sbOn()){
+    try{ const r=await sbFetch("bitsler_rounds",{method:"POST",body:JSON.stringify(rec)});
+         rows.push(r[0]); render(); return; }
+    catch(e){ setConn("bad","쓰기 실패 → 로컬 저장"); }
+  }
+  rows.push(rec);
+  const d=localAll(); d[seed]=rows; localSave(d); render();
+}
+async function pop(){
+  if(!rows.length) return;
+  const last=rows[rows.length-1];
+  if(sbOn() && last.id){
+    try{ await sbFetch("bitsler_rounds?id=eq."+last.id,{method:"DELETE"}); }catch(e){}
+  }
+  rows.pop();
+  if(!sbOn()||!last.id){ const d=localAll(); d[seed]=rows; localSave(d); }
+  render();
+}
+async function wipe(){
+  if(!confirm(`seed "${seed}" 의 ${rows.length}개 기록을 전부 삭제할까요?`)) return;
+  if(sbOn()){ try{ await sbFetch(`bitsler_rounds?seed=eq.${encodeURIComponent(seed)}`,{method:"DELETE"});}catch(e){} }
+  rows=[]; const d=localAll(); delete d[seed]; localSave(d); render();
+}
+function setConn(kind,txt){
+  const el=document.getElementById("conn");
+  el.className="badge "+(kind==="ok"?"g":kind==="bad"?"r":"y"); el.textContent=txt;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ANALYTICS
+   ══════════════════════════════════════════════════════════════ */
+const idxs = () => rows.map(r=>r.idx);
+
+/* ① drought gauges — thresholds by tier index */
+const THRESH=[
+  {name:"4x+", ti:19}, {name:"4.8x+", ti:20},
+  {name:"6x+", ti:21}, {name:"8x+", ti:22}, {name:"12x+", ti:23}, {name:"24x", ti:24}
+];
+function drought(){
+  const v=idxs();
+  return THRESH.map(t=>{
+    const p=(K-t.ti)/K;
+    let gap=0;
+    for(let i=v.length-1;i>=0;i--){ if(v[i]>=t.ti) break; gap++; }
+    const hit=v.filter(x=>x>=t.ti).length;
+    return {...t, p, gap, hit, expGap:1/p, pv:Math.pow(1-p,gap)};
+  });
+}
+
+/* ② sequential detection */
+function detect(){
+  const v=idxs(), n=v.length;
+  // χ² goodness of fit on 20 cells
+  const cnt=new Array(K).fill(0); v.forEach(i=>cnt[i]++);
+  const e=n/K;
+  let chi=0; if(n) for(let i=0;i<K;i++) chi+=(cnt[i]-e)**2/e;
+  const chiP = n>=40 ? chi2sf(chi,K-1) : NaN;
+
+  // Bernoulli stream: X = 1 if tier >= 3.27 (p0 = 0.30)
+  const p0=0.32, pLo=0.224, pHi=0.416; // ±30% relative shift
+  const llr=x=>({
+    lo: x? Math.log(pLo/p0) : Math.log((1-pLo)/(1-p0)),
+    hi: x? Math.log(pHi/p0) : Math.log((1-pHi)/(1-p0))
+  });
+  let cLo=0,cHi=0, sprt=0;
+  const trace=[];
+  v.forEach(i=>{
+    const x = i>=17 ? 1 : 0, d=llr(x);
+    cLo=Math.max(0,cLo+d.lo); cHi=Math.max(0,cHi+d.hi);
+    sprt+=d.lo;                                    // SPRT: H0 p=.30 vs H1 p=.21
+    trace.push({lo:cLo,hi:cHi,sprt});
+  });
+  const H=4.6;                                     // CUSUM alarm ≈ α 1%
+  const A=Math.log(0.95/0.05), B=Math.log(0.05/0.95);   // ±2.944
+  const hits=v.filter(i=>i>=17).length;
+  return {n,chi,chiP,cLo,cHi,H,sprt,A,B,trace,hits,p0,rate:n?hits/n:0};
+}
+
+/* 칸별 정확검정 + Benjamini-Hochberg FDR */
+function cellTests(){
+  const v=idxs(), n=v.length, p=PTIER;
+  const cnt=new Array(K).fill(0); v.forEach(i=>cnt[i]++);
+  const lnC=(nn,k)=>lnGamma(nn+1)-lnGamma(k+1)-lnGamma(nn-k+1);
+  const pmf=(k,nn)=>Math.exp(lnC(nn,k)+k*Math.log(p)+(nn-k)*Math.log(1-p));
+  const ge=(k,nn)=>{let s=0;for(let i=k;i<=nn;i++)s+=pmf(i,nn);return Math.min(1,s);};
+  const le=(k,nn)=>{let s=0;for(let i=0;i<=k;i++)s+=pmf(i,nn);return Math.min(1,s);};
+  const arr=cnt.map((o,i)=>({i,o,exp:n*p,
+    pv: n? Math.min(1, 2*Math.min(ge(o,n), le(o,n))) : 1}));
+  const srt=arr.slice().sort((a,b)=>a.pv-b.pv);
+  let prev=1;
+  for(let r=srt.length;r>=1;r--){ srt[r-1].q=Math.min(prev, srt[r-1].pv*K/r); prev=srt[r-1].q; }
+  return {cells:arr, top:srt.slice(0,4), flagged:arr.filter(x=>x.q<0.05)};
+}
+/* 관측 편차가 진짜일 때 80% 검정력에 필요한 판 수 */
+function needN(pObs){
+  if(pObs<=PTIER) return null;
+  const lnC=(nn,k)=>lnGamma(nn+1)-lnGamma(k+1)-lnGamma(nn-k+1);
+  const ge=(k,nn,p)=>{let s=0;for(let i=k;i<=nn;i++)s+=Math.exp(lnC(nn,i)+i*Math.log(p)+(nn-i)*Math.log(1-p));return Math.min(1,s);};
+  const a=0.05/K;
+  for(let n=40;n<=1200;n+=10){
+    let k=0; while(k<=n && ge(k,n,PTIER)>a) k++;
+    if(ge(k,n,pObs)>=0.80) return n;
+  }
+  return null;
+}
+
+/* ③ empirical-Bayes recommendation */
+function reco(kappa){
+  const v=idxs(), n=v.length;
+  const cnt=new Array(K).fill(0); v.forEach(i=>cnt[i]++);
+  const post=cnt.map(c=>(c+kappa*PTIER)/(n+kappa));      // Dirichlet posterior mean
+  const out=[];
+  for(let ti=1;ti<K;ti++){
+    let pr=0; for(let j=ti;j<K;j++) pr+=post[j];
+    const t=L[ti], ev=pr*t-1;
+    const sd=Math.sqrt(pr*(t-1)**2+(1-pr)*1-(pr*t-1)**2);
+    out.push({t,ti,pr,ev,sd,ratio:ev/sd, theo:(K-ti)/K});
+  }
+  return out;
+}
+
+/* ⑤ bankroll */
+function bankroll(start,bet,ti){
+  const t=L[ti]; let bal=start, peak=start, dd=0, streak=0, worst=0;
+  const curve=[start];
+  idxs().forEach(v=>{
+    if(v>=ti){ bal+=bet*(t-1); streak=0; } else { bal-=bet; streak++; worst=Math.max(worst,streak); }
+    peak=Math.max(peak,bal); dd=Math.min(dd,bal-peak); curve.push(bal);
+  });
+  return {bal,dd,worst,curve,t};
+}
+function ruinSim(start,bet,ti,rounds=100,runs=10000){
+  const t=L[ti], p=(K-ti)/K; let ruined=0;
+  for(let r=0;r<runs;r++){
+    let b=start;
+    for(let i=0;i<rounds;i++){
+      if(b<bet){ ruined++; break; }
+      b += Math.random()<p ? bet*(t-1) : -bet;
+    }
+    if(b<bet) ruined++;
+  }
+  return ruined/runs;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER
+   ══════════════════════════════════════════════════════════════ */
+let cusumChart, bkChart;
+
+function render(){
+  const v=idxs(), n=v.length;
+  document.getElementById("nLabel").textContent="n = "+n;
+
+  /* history strip */
+  document.getElementById("hist").innerHTML = rows.slice(-160).map((r,i,a)=>{
+    const c = r.idx===0?"z":(r.idx>=19?"h":"");
+    return `<span class="${c}${i===a.length-1?" last":""}">${L[r.idx]}</span>`;
+  }).join("");
+
+  /* ── shared: kappa · detection · posterior ── */
+  const kap=+document.getElementById("kappa").value;
+  document.getElementById("kappaVal").textContent=kap;
+  const D=detect();
+  const alarm = D.cLo>D.H || D.cHi>D.H || (n>=40 && D.chiP<0.01) || D.sprt>D.A;
+  const R0=reco(kap);
+  const surv = ti => ti<=0 ? 1 : R0[ti-1].pr;              // P(결과 ≥ tier ti)
+  const targetAtLeast = q => { let b=1; for(let ti=1;ti<K;ti++) if(surv(ti)>=q) b=ti; return b; };
+  const nearestOpt = ti => { for(let d=0;d<K;d++){ if(isOpt(ti-d)) return ti-d; if(isOpt(ti+d)) return ti+d; } return ti; };
+
+  /* ① READY 지수 */
+  const dr=drought();
+  const ready = n ? Math.max(...dr.map(d=>1-Math.pow(1-d.p,d.gap))) : 0;
+  const rs=ready*100;
+  const V = rs<70  ? ["평범 — 신호 없음","g","var(--ok)"]
+          : rs<90  ? ["약한 가뭄","y","var(--warn)"]
+          : rs<98  ? ["가뭄 진행중","y","var(--warn)"]
+          : rs<99.5? ["통계적으로 드문 가뭄","r","var(--bad)"]
+          :          ["극단적 가뭄 — seed 의심","r","var(--bad)"];
+  document.getElementById("readyScore").textContent = n?rs.toFixed(1):"—";
+  document.getElementById("readyScore").style.color = n?V[2]:"var(--tx3)";
+  const rv=document.getElementById("readyVerdict");
+  rv.className="badge "+(n?V[1]:"y"); rv.textContent = n?V[0]:"대기";
+  document.getElementById("readySub").textContent = n?`n=${n} · 최장가뭄 기준`:"결과를 입력하세요";
+
+  document.getElementById("drought").innerHTML = dr.map(d=>{
+    const due=1-Math.pow(1-d.p,d.gap);
+    const col = due>0.98?"var(--bad)" : due>0.90?"var(--warn)":"var(--ok)";
+    return `<div class="gauge">
+      <span class="lbl hot">${d.name}</span>
+      <span><div class="bar"><i style="width:${(due*100).toFixed(0)}%;background:${col}"></i></div>
+        <span class="dim" style="font-size:10px">${d.hit}회 출현 · 기대간격 ${d.expGap.toFixed(0)}회</span></span>
+      <span class="val"><b style="color:${col}">${d.gap}회</b> <span class="dim">째 없음</span></span>
+    </div>`;
+  }).join("");
+
+  document.getElementById("feelProb").innerHTML = dr.map(d=>{
+    const due=1-Math.pow(1-d.p,d.gap);
+    return `<div><span class="dim">${d.name}</span><b style="color:${due>0.95?'var(--bad)':'var(--warn)'}">${(due*100).toFixed(1)}%</b></div>`;
+  }).join("") + `<div class="dim" style="font-size:10px;margin-top:5px;display:block">벌써 나왔어야 할 확률</div>`;
+
+  document.getElementById("trueProb").innerHTML = dr.map(d=>{
+    const p=surv(d.ti), delta=p-d.p;
+    return `<div><span class="dim">${d.name}</span><b class="acc">${pct(p)}<span class="dim" style="font-size:10px">${
+      Math.abs(delta)<0.005?"":(delta>0?" ▲":" ▼")}</span></b></div>`;
+  }).join("") + `<div class="dim" style="font-size:10px;margin-top:5px;display:block">${
+    alarm?'<span class="bad">이상 감지 → 사후확률 조정됨</span>':'가뭄 길이와 무관하게 고정'}</div>`;
+
+  /* ② 이번 판 추천 */
+  const mti=targetAtLeast(0.50);
+  document.getElementById("medLine").textContent=L[mti]+"×";
+  document.getElementById("medSub").innerHTML=
+    `50% 확률로 여기 이상 · 실제 적중률 <b class="mono">${pct(surv(mti))}</b>`;
+
+  const CARDS=[
+    {k:"safe",t:"안전",q:0.75,d:"길게 굴릴 때. 적중은 잦지만 엣지를 가장 빨리 실현합니다."},
+    {k:"std", t:"표준",q:0.50,d:"동전던지기 지점. EV·분산 균형이 가장 무난합니다."},
+    {k:"agg", t:"공격",q:0.20,d:"요청하신 max 지향. 드로다운이 급격히 깊어집니다."}
+  ];
+  document.getElementById("recoCards").innerHTML = CARDS.map(c=>{
+    const ti=targetAtLeast(c.q), p=surv(ti), ev=p*L[ti]-1;
+    const oti=nearestOpt(ti), opt=isOpt(ti);
+    return `<div class="card ${c.k}"><div class="ct">${c.t}</div>
+      <div class="cm">${L[ti]}×</div>
+      <div class="cp">적중 ${pct(p)}</div>
+      <div class="cp ${ev>=0?'ok':'bad'}">EV ${ev>=0?"+":""}${fmt(ev,3)}</div>
+      <div style="margin-top:4px"><span class="optb ${opt?'y':'n'}">${opt?'최적 RTP':'반올림 −'+((RTP-EFF[ti])*100).toFixed(2)+'%p'}</span></div>
+      ${opt?'':`<div class="cd" style="color:var(--warn)">→ 대신 <b>${L[oti]}×</b> 쓰면 RTP 회복</div>`}
+      <div class="cd">${c.d}</div></div>`;
+  }).join("");
+
+  document.getElementById("qTbl").innerHTML=[0.90,0.75,0.50,0.25,0.10,0.05].map(q=>{
+    const ti=targetAtLeast(q);
+    return `<tr><td class="dim">${(q*100).toFixed(0)}% 확률로</td>
+      <td><b class="${q<=0.25?'hot':''}">${L[ti]}×</b> 이상 <span class="dim">(실제 ${pct(surv(ti))})</span></td></tr>`;
+  }).join("");
+
+  document.getElementById("recoNote").innerHTML = alarm
+    ? `<b class="bad">⚠ ③번 ALARM</b> — 이 seed가 균등 5% 모델에서 벗어났다는 순차검정 신호가 떴습니다. 위 수치는 실측 편향을 반영해 재계산된 값이며, 이론값과의 차이(▲▼)를 확인하세요.`
+    : `이상 없음. 이 추천은 <b>예측이 아니라 분위수</b>입니다 — "이번 판에 뭐가 나올지"가 아니라 "각 목표의 적중 확률이 얼마인지"를 보여줍니다. ①번 READY가 아무리 높아도 이 표는 변하지 않으며, 그게 정상입니다. 세 카드 중 선택 기준은 EV(전부 −0.02로 동일)가 아니라 <b>감당 가능한 드로다운</b>입니다.`;
+
+  /* ③ detection */
+  const st=(cond)=>cond?`<span class="badge r">ALARM</span>`:`<span class="badge g">정상</span>`;
+  document.getElementById("detect").innerHTML=`
+    <div class="kv"><span>χ² 적합도 (df=19)</span><b>${n?fmt(D.chi,2):"—"} ${isNaN(D.chiP)?'<span class="dim">n&lt;40</span>':`<span class="dim">p=${fmt(D.chiP,3)}</span>`} ${n>=40?st(D.chiP<0.01):""}</b></div>
+    <div class="kv"><span>CUSUM ↓ (고배수 감소)</span><b>${fmt(D.cLo,2)} <span class="dim">/ ${D.H}</span> ${st(D.cLo>D.H)}</b></div>
+    <div class="kv"><span>CUSUM ↑ (고배수 증가)</span><b>${fmt(D.cHi,2)} <span class="dim">/ ${D.H}</span> ${st(D.cHi>D.H)}</b></div>
+    <div class="kv"><span>SPRT 로그우도비</span><b>${fmt(D.sprt,2)} <span class="dim">[${fmt(D.B,2)}, ${fmt(D.A,2)}]</span> ${
+      D.sprt>D.A?'<span class="badge r">H1 채택</span>':D.sprt<D.B?'<span class="badge g">H0 채택</span>':'<span class="badge y">판단보류</span>'}</b></div>
+    <div class="kv"><span>3x+ 실측 비율</span><b>${D.hits}/${D.n} = ${n?pct(D.rate):"—"} <span class="dim">(이론 32.0%)</span></b></div>`;
+
+  const labels=D.trace.map((_,i)=>i+1);
+  const ds=[
+    {label:"CUSUM ↓",data:D.trace.map(t=>t.lo),borderColor:"#f85149",tension:.2,pointRadius:0,borderWidth:1.5},
+    {label:"CUSUM ↑",data:D.trace.map(t=>t.hi),borderColor:"#3fb950",tension:.2,pointRadius:0,borderWidth:1.5},
+    {label:"임계 4.6",data:labels.map(()=>4.6),borderColor:"#6e7681",borderDash:[4,4],pointRadius:0,borderWidth:1}
+  ];
+  if(cusumChart){ cusumChart.data.labels=labels; cusumChart.data.datasets=ds; cusumChart.update("none"); }
+  else cusumChart=new Chart(document.getElementById("cusumChart"),{type:"line",
+    data:{labels,datasets:ds},
+    options:{responsive:true,animation:false,plugins:{legend:{labels:{color:"#8b949e",boxWidth:10,font:{size:10}}}},
+      scales:{x:{ticks:{color:"#6e7681",font:{size:9},maxTicksLimit:10},grid:{color:"#21262d"}},
+              y:{ticks:{color:"#6e7681",font:{size:9}},grid:{color:"#21262d"}}}}});
+
+  /* ④ 칸별 이상 감지 */
+  const CT=cellTests();
+  const flag=CT.flagged;
+  const worst=CT.top[0];
+  const need = n&&worst ? needN(Math.max(worst.o/n, PTIER+1e-9)) : null;
+  document.getElementById("cellSummary").innerHTML = !n
+    ? '<span class="dim">결과를 입력하세요</span>'
+    : flag.length
+      ? `<div class="row"><span class="badge r">이상 ${flag.length}칸</span>
+         <b class="mono">${flag.map(f=>L[f.i]+"×").join(", ")}</b></div>
+         <div class="dim" style="font-size:11px;margin-top:6px">다중검정 보정 후에도 균등 4%로 설명이 안 되는 칸입니다.
+         ${need?`이 편차가 진짜라면 <b class="acc">n=${need}</b> 에서 80% 확률로 확증됩니다 (현재 n=${n}, ${need>n?`${need-n}판 더`:"충족"}).`:""}</div>`
+      : `<div class="row"><span class="badge g">이상 없음</span>
+         <span class="dim" style="font-size:12px">가장 튀는 칸: <b class="mono">${L[worst.i]}×</b> (${worst.o}회 / 기대 ${worst.exp.toFixed(1)}, q=${fmt(worst.q,3)})</span></div>
+         <div class="dim" style="font-size:11px;margin-top:6px">${n<100?`표본이 작아 검정력이 낮습니다. 최소 100판은 모아야 의미 있는 판단이 됩니다 (현재 ${n}).`:"25칸 전부 균등 4% 가설과 일치합니다."}</div>`;
+
+  document.getElementById("cellTbl").innerHTML = CT.top.map(x=>{
+    const sig=x.q<0.05, dev=x.o-x.exp;
+    return `<tr><td class="${sig?'bad':''}">${L[x.i]}${x.i===0?" (즉사)":"×"}</td>
+      <td><b>${x.o}</b></td><td class="dim">${x.exp.toFixed(1)}</td>
+      <td class="dim">${n?fmt(x.pv,4):"—"}</td>
+      <td class="${sig?'bad':'dim'}">${n?fmt(x.q,4):"—"}</td>
+      <td class="${dev>0?'hot':'dim'}" style="font-size:11px">${dev>0?"+":""}${dev.toFixed(1)}</td></tr>`;
+  }).join("");
+
+  /* ⑤ 목표 효율 */
+  document.getElementById("effGrid").innerHTML =
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:5px">` +
+    L.slice(1).map((m,j)=>{ const i=j+1, o=isOpt(i), loss=(RTP-EFF[i])*100;
+      return `<div style="text-align:center;padding:5px 2px;border-radius:5px;border:1px solid ${o?'rgba(63,185,80,.35)':'rgba(210,153,34,.35)'};background:${o?'rgba(63,185,80,.07)':'rgba(210,153,34,.07)'}">
+        <div class="mono" style="font-size:13px;font-weight:700;color:${o?'var(--ok)':'var(--warn)'}">${m}×</div>
+        <div class="mono" style="font-size:9px;color:var(--tx3)">${EFF[i].toFixed(4)}</div>
+        <div class="mono" style="font-size:9px;color:${o?'var(--ok)':'var(--warn)'}">${o?'최적':'−'+loss.toFixed(2)+'%p'}</div>
+      </div>`; }).join("") + `</div>
+    <div class="row" style="margin-top:10px;gap:14px;font-size:11px">
+      <span><b class="ok">최적 ${L.slice(1).filter((m,j)=>isOpt(j+1)).length}개</b> · RTP 0.9600</span>
+      <span><b class="warn">손해 ${L.slice(1).filter((m,j)=>!isOpt(j+1)).length}개</b> · 최대 −0.32%p</span>
+      <span class="dim">현재 추천 ${L[targetAtLeast(0.50)]}× → ${isOpt(targetAtLeast(0.50))?'<b class="ok">최적</b>':'<b class="warn">비최적</b>'}</span>
+    </div>`;
+
+  /* ⑥ EV ranking */
+  const R=R0.slice().sort((a,b)=>b.ev-a.ev);
+  document.getElementById("reco").innerHTML=`
+    <div style="padding:10px;background:var(--panel2);border-radius:8px;margin-bottom:10px">
+      <div class="dim" style="font-size:11px">최적 목표 (EV 기준)</div>
+      <div class="row" style="align-items:baseline">
+        <span class="big ${R[0].ev>=0?'ok':'warn'}">${R[0].t}×</span>
+        <span class="mono" style="font-size:12px">EV ${R[0].ev>=0?"+":""}${fmt(R[0].ev,4)} · 적중 ${pct(R[0].pr)}</span>
+      </div>
+      <div class="dim" style="font-size:11px;margin-top:6px">${
+        alarm ? '<span class="bad">⚠ ③번 ALARM 상태 — 실측 편향을 반영한 추천입니다.</span>'
+              : '이상 없음 → 이론상 모든 목표가 동률(EV −0.02)입니다. 아래 순위는 표본 노이즈일 뿐이니 <b>드로다운 감내 범위</b>로 고르세요.'}</div>
+    </div>
+    <table><thead><tr><th>목표</th><th>사후 적중률</th><th>EV</th><th>SD</th><th>EV/SD</th></tr></thead><tbody>
+    ${R.slice(0,6).map((r,i)=>`<tr><td class="${i===0?'acc':''}">${r.t}${i===0?' ★':''}</td>
+      <td>${pct(r.pr)} <span class="dim">(${pct(r.theo)})</span></td>
+      <td class="${r.ev>=0?'ok':'bad'}">${r.ev>=0?"+":""}${fmt(r.ev,4)}</td>
+      <td class="dim">${fmt(r.sd,2)}</td><td>${fmt(r.ratio,4)}</td></tr>`).join("")}
+    </tbody></table>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">
+      <div class="dim" style="font-size:11px">공격형 (최고 EV/SD = 손실 실현이 가장 느린 선택)</div>
+      <div class="mono hot" style="font-size:13px;margin-top:2px">${
+        (()=>{const a=R0.slice().sort((x,y)=>y.ratio-x.ratio)[0];
+              return `${a.t}× · 적중 ${pct(a.pr)} · EV/SD ${fmt(a.ratio,4)}`;})()}</div>
+    </div>`;
+
+  /* ④ target RTP table */
+  const cnt=new Array(K).fill(0); v.forEach(i=>cnt[i]++);
+  const tb=document.querySelector("#rtpTbl tbody"); tb.innerHTML="";
+  for(let ti=1;ti<K;ti++){
+    const t=L[ti], w=v.filter(x=>x>=ti).length, theo=(K-ti)/K;
+    const rtp=n?w*t/n:0, [lo,hi]=wilson(w,n);
+    const inRange = n>=20 && lo*t<=0.98 && hi*t>=0.98;
+    const cls = !n||n<20 ? "dim" : inRange ? "" : (rtp>0.98?"ok":"bad");
+    tb.innerHTML+=`<tr><td>${t}</td><td>${w}</td><td>${n?pct(w/n):"—"}</td>
+      <td class="dim">${pct(theo)}</td><td class="${cls}">${n?fmt(rtp,3):"—"}</td>
+      <td class="dim" style="font-size:11px">${n?`${fmt(lo*t,2)}–${fmt(hi*t,2)}`:"—"}</td></tr>`;
+  }
+
+  /* ⑤ bankroll */
+  const bs=+document.getElementById("bkStart").value||0;
+  const bb=+document.getElementById("bkBet").value||1;
+  const bt=+document.getElementById("bkTarget").value||12;
+  const B=bankroll(bs,bb,bt);
+  const pnl=B.bal-bs;
+  document.getElementById("bkNow").textContent=B.bal.toFixed(0);
+  const pe=document.getElementById("bkPnl");
+  pe.textContent=(pnl>=0?"+":"")+pnl.toFixed(0); pe.className="big "+(pnl>=0?"ok":"bad");
+  document.getElementById("bkDd").textContent=B.dd.toFixed(0);
+  document.getElementById("bkStreak").textContent=B.worst+"회";
+  const bl=B.curve.map((_,i)=>i);
+  const bd=[{label:`목표 ${B.t}×`,data:B.curve,borderColor:pnl>=0?"#3fb950":"#f85149",
+             backgroundColor:pnl>=0?"rgba(63,185,80,.08)":"rgba(248,81,73,.08)",
+             fill:true,tension:.15,pointRadius:0,borderWidth:1.5},
+            {label:"시작",data:bl.map(()=>bs),borderColor:"#6e7681",borderDash:[4,4],pointRadius:0,borderWidth:1}];
+  if(bkChart){ bkChart.data.labels=bl; bkChart.data.datasets=bd; bkChart.update("none"); }
+  else bkChart=new Chart(document.getElementById("bkChart"),{type:"line",data:{labels:bl,datasets:bd},
+    options:{responsive:true,animation:false,plugins:{legend:{labels:{color:"#8b949e",boxWidth:10,font:{size:10}}}},
+      scales:{x:{ticks:{color:"#6e7681",font:{size:9},maxTicksLimit:12},grid:{color:"#21262d"}},
+              y:{ticks:{color:"#6e7681",font:{size:9}},grid:{color:"#21262d"}}}}});
+}
+
+/* ══════════════════════════════════════════════════════════════
+   UI WIRING
+   ══════════════════════════════════════════════════════════════ */
+const pad=document.getElementById("pad");
+L.forEach((m,i)=>{
+  const b=document.createElement("button");
+  b.textContent = m===0 ? "💀 0" : m;
+  b.className = m===0 ? "zero" : (i>=19 ? "hi" : "");
+  if(i>0 && !isOpt(i)) b.classList.add("subopt");
+  b.title = i===0 ? "즉시 사망 · 이론 4%" : `${KEYS[i]} 키 · 이론 4% · RTP ${EFF[i].toFixed(4)}${isOpt(i)?" (최적)":" (반올림 손해)"}`;
+  b.onclick=()=>push(i);
+  pad.appendChild(b);
+});
+const bkSel=document.getElementById("bkTarget");
+L.slice(1).forEach((m,i)=>{
+  const o=document.createElement("option"); o.value=i+1; o.textContent=m+"×";
+  if(m===2) o.selected=true; bkSel.appendChild(o);
+});
+
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT") return;
+  if(e.key==="Backspace"){ e.preventDefault(); pop(); return; }
+  const i=KEYS.indexOf(e.key.toLowerCase());
+  if(i>=0){ e.preventDefault(); push(i); }
+});
+document.getElementById("undo").onclick=pop;
+document.getElementById("clearSeed").onclick=wipe;
+["bkStart","bkBet","bkTarget","kappa"].forEach(id=>
+  document.getElementById(id).addEventListener("input",render));
+
+document.getElementById("simBtn").onclick=()=>{
+  const p=ruinSim(+document.getElementById("bkStart").value,
+                  +document.getElementById("bkBet").value,
+                  +document.getElementById("bkTarget").value);
+  const el=document.getElementById("bkRuin");
+  el.textContent=pct(p); el.className="big "+(p>0.3?"bad":p>0.1?"warn":"ok");
+};
+
+document.getElementById("seedSel").onchange=async e=>{
+  seed=e.target.value; localStorage.setItem(LS_SEED,seed);
+  await loadRows(); render();
+};
+document.getElementById("newSeed").onclick=async()=>{
+  const s=prompt("새 seed 이름", "seed-"+(new Date().toISOString().slice(0,10)));
+  if(!s) return;
+  seed=s; localStorage.setItem(LS_SEED,seed);
+  const d=localAll(); if(!d[seed]){ d[seed]=[]; localSave(d); }
+  await loadSeeds(); await loadRows(); render();
+};
+
+/* config dialog */
+const dlg=document.getElementById("cfg");
+document.getElementById("cfgBtn").onclick=()=>{
+  document.getElementById("sbUrl").value=cfg.url||"";
+  document.getElementById("sbKey").value=cfg.key||"";
+  dlg.showModal();
+};
+document.getElementById("cfgClose").onclick=()=>dlg.close();
+document.getElementById("cfgReset").onclick=async()=>{
+  localStorage.removeItem(LS_CFG); cfg = HARD || {};
+  document.getElementById("sbUrl").value=cfg.url||"";
+  document.getElementById("sbKey").value=cfg.key||"";
+  document.getElementById("cfgMsg").innerHTML=
+    HARD?'<span class="ok">✓ 파일 내장 설정으로 복구</span>':'<span class="warn">내장 설정 없음 → 로컬 저장소 사용</span>';
+  await loadSeeds(); await loadRows(); render();
+};
+document.getElementById("cfgSave").onclick=async()=>{
+  cfg={url:document.getElementById("sbUrl").value.trim(),
+       key:document.getElementById("sbKey").value.trim()};
+  localStorage.setItem(LS_CFG,JSON.stringify(cfg));
+  await loadSeeds(); await loadRows(); render(); dlg.close();
+};
+document.getElementById("cfgTest").onclick=async()=>{
+  const m=document.getElementById("cfgMsg");
+  const tmp={url:document.getElementById("sbUrl").value.trim(),
+             key:document.getElementById("sbKey").value.trim()};
+  const old=cfg; cfg=tmp;
+  try{ await sbFetch("bitsler_rounds?select=id&limit=1");
+       m.innerHTML='<span class="ok">✓ 연결 성공</span>'; }
+  catch(e){ m.innerHTML='<span class="bad">✗ '+e.message.slice(0,140)+'</span>'; cfg=old; }
+};
+document.getElementById("expBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify({seed,exported:new Date().toISOString(),rows},null,2)],
+                      {type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=`bitsler-${seed}-${rows.length}.json`; a.click();
+};
+const BASE59=[1.09,1.71,4.8,1.41,1.09,2.18,1.14,1.04,8,1.14,1.14,2.18,8,6,4.8,1.09,1.84,1.04,1.04,3,
+1.6,2.18,1.84,4,1.14,1.5,1.14,1.6,24,1.04,1.6,2.66,1.04,2,1.04,0,1.04,3.42,8,3.42,
+1.6,1,0,1.33,6,2,24,2.66,2,24,3,1.71,12,12,1.5,1.04,24,1.41,1.04,0];
+document.getElementById("loadBase").onclick=async()=>{
+  seed="baseline-60"; localStorage.setItem(LS_SEED,seed);
+  await loadRows();
+  if(!rows.length) for(const m of BASE59){ const i=L.indexOf(m); if(i>=0) await push(i); }
+  else alert(`이미 ${rows.length}건이 있습니다.`);
+  await loadSeeds(); render(); dlg.close();
+};
+document.getElementById("impBtn").onclick=()=>document.getElementById("impFile").click();
+document.getElementById("impFile").onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const j=JSON.parse(await f.text());
+  const list=Array.isArray(j)?j:j.rows;
+  for(const r of list){
+    const i = r.idx!=null ? r.idx : L.indexOf(+r.mult);
+    if(i>=0) await push(i);
+  }
+  dlg.close();
+};
+
+/* boot */
+(async()=>{ await loadSeeds(); await loadRows(); render(); })();
+</script>
+</body>
+</html>
