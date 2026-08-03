@@ -5,8 +5,8 @@
 
 | 사이트 | 게임 | 구조 | 테이블 |
 |---|---|---|---|
-| `/` | Shuffle Chicken | 20칸 균등 5% · RTP 98% | `shuffle_rounds` |
-| `/bitsler/` | Bitsler Risky Chicken | 25칸 균등 4% · RTP 96% | `bitsler_rounds` |
+| `/` | Bitsler Risky Chicken | 25칸 균등 4% · RTP 96% | `bitsler_rounds` |
+| `/shuffle/` | Shuffle Chicken | 20칸 균등 5% · RTP 98% | `shuffle_rounds` |
 
 ## 모델
 

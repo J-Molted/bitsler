@@ -1,0 +1,22 @@
+# 정적 사이트 — 빌드 없음. 저장소 루트를 그대로 서빙합니다.
+[build]
+  publish = "."
+
+# 옛 경로 호환: /bitsler/ 로 들어와도 루트로 보냄
+[[redirects]]
+  from = "/bitsler/*"
+  to = "/"
+  status = 301
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
